@@ -6,6 +6,7 @@ const createTask = async (req, res, next) => {
     const { title, description, status } = req.body;
 
     const newTask = await Task.create({
+      user: req.user._id,
       title,
       description,
       status,
@@ -23,7 +24,7 @@ const createTask = async (req, res, next) => {
 // Get all tasks
 const getAllTasks = async (req, res, next) => {
   try {
-    const tasks = await Task.find();
+    const tasks = await Task.find({ user: req.user._id });
 
     res.status(200).json({
       success: true,
