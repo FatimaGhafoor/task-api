@@ -1,7 +1,7 @@
 const Task = require("../models/Task");
 
 // Create a new task
-const createTask = async (req, res) => {
+const createTask = async (req, res, next) => {
   try {
     const { title, description, status } = req.body;
 
@@ -16,16 +16,12 @@ const createTask = async (req, res) => {
       data: newTask,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-      error: error,
-    });
+    next(error);
   }
 };
 
 // Get all tasks
-const getAllTasks = async (req, res) => {
+const getAllTasks = async (req, res, next) => {
   try {
     const tasks = await Task.find();
 
@@ -35,15 +31,11 @@ const getAllTasks = async (req, res) => {
       data: tasks,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 
-// Update a specific task status or content
-const updateTask = async (req, res) => {
+const updateTask = async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -63,15 +55,11 @@ const updateTask = async (req, res) => {
       data: updatedTask,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 
-// Delete a specific task
-const deleteTask = async (req, res) => {
+const deleteTask = async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -85,13 +73,10 @@ const deleteTask = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Task deleted successfully", 
+      message: "Task deleted successfully",
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 
