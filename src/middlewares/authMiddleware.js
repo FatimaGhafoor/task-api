@@ -17,14 +17,16 @@ const protect = async (req, res, next) => {
 
       return next();
     } catch (error) {
-      res.status(401);
-      return next(new Error("Not authorized, token failed or expired"));
+      const authError = new Error("Not authorized, token failed or expired");
+      res.statusCode = 401;
+      return next(authError);
     }
   }
 
   if (!token) {
-    res.status(401);
-    return next(new Error("Not authorized, no token provided"));
+    const noTokenError = new Error("Not authorized, no token provided");
+    res.statusCode = 401;
+    return next(noTokenError);
   }
 };
 
