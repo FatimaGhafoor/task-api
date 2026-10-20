@@ -5,12 +5,50 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 const errorHandler = require("./middlewares/errorHandler");
+const swaggerUi = require("swagger-ui-express");
+const swaggerJsDoc = require("swagger-jsdoc");
 
 const app = express();
 
 connectDB();
 
 app.use(express.json());
+
+const swaggerOptions = {
+  swaggerDefinition: {
+    openapi: "3.0.0",
+    info: {
+      title: "AppRo8 Task Management API",
+      version: "1.0.0",
+      description:
+        "Production-grade Task Management REST API documentation with JWT protection layers.",
+      contact: {
+        name: "AppRo8 Developer",
+      },
+    },
+    servers: [
+      {
+        url: "http://localhost:5000",
+        description: "Local Development Server",
+      },
+    ],
+    components: {
+      securitySchemes: {
+        BearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
+  },
+
+  apis: ["./src/routes/*.js"],
+};
+
+const swaggerDocs = swaggerJsDoc(swaggerOptions);
+
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 app.use("/api/tasks", taskRoutes);
 app.use("/api/auth", authRoutes);
 
