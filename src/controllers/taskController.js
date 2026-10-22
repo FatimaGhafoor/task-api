@@ -40,10 +40,11 @@ const updateTask = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const updatedTask = await Task.findByIdAndUpdate(id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const updatedTask = await Task.findOneAndUpdate(
+      { _id: id, user: req.user._id },
+      { $set: updates },
+      { new: true, runValidators: true },
+    );
 
     if (!updatedTask) {
       return res
@@ -64,7 +65,10 @@ const deleteTask = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const deletedTask = await Task.findByIdAndDelete(id);
+    const deletedTask = await Task.findOneAndDelete({
+      _id: id,
+      user: req.user._id,
+    });
 
     if (!deletedTask) {
       return res
