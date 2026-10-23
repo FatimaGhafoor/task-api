@@ -48,6 +48,10 @@ const swaggerOptions = {
 
 const swaggerDocs = swaggerJsDoc(swaggerOptions);
 
+app.get("/api-docs", (req, res) => {
+  res.redirect(301, "/api-docs/");
+});
+
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 app.use("/api/tasks", taskRoutes);
 app.use("/api/auth", authRoutes);
