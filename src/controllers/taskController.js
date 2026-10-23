@@ -39,6 +39,15 @@ const getAllTasks = async (req, res, next) => {
 const updateTask = async (req, res, next) => {
   try {
     const { id } = req.params;
+    console.log("Authenticated user:", req.user?._id?.toString());
+    console.log("Requested task:", id);
+
+    const { title, description, status } = req.body;
+
+    const updates = {};
+    if (title !== undefined) updates.title = title;
+    if (description !== undefined) updates.description = description;
+    if (status !== undefined) updates.status = status;
 
     const updatedTask = await Task.findOneAndUpdate(
       { _id: id, user: req.user._id },
@@ -47,15 +56,13 @@ const updateTask = async (req, res, next) => {
     );
 
     if (!updatedTask) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Task not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Task not found",
+      });
     }
 
-    res.status(200).json({
-      success: true,
-      data: updatedTask,
-    });
+    res.status(200).json({ success: true, data: updatedTask });
   } catch (error) {
     next(error);
   }
