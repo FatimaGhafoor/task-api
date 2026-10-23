@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+
 const { registerUser, loginUser } = require("../controllers/authController");
 
 /**
@@ -24,23 +25,24 @@ const { registerUser, loginUser } = require("../controllers/authController");
  *                 example: AppRo8 Tester
  *               email:
  *                 type: string
+ *                 format: email
  *                 example: testuser@appro8.com
  *               password:
  *                 type: string
+ *                 minLength: 6
  *                 example: password123
  *     responses:
  *       201:
- *         description: User registered successfully
+ *         description: User registered successfully; returns a JWT and user information
  *       400:
- *         description: Validation failure or User already exists
+ *         description: Required fields are missing, input is invalid, or the email already exists
  */
-router.post("/register", registerUser);
 
 /**
  * @openapi
  * /api/auth/login:
  *   post:
- *     summary: Authenticate user & get secure JWT token
+ *     summary: Authenticate a user and obtain a JWT
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -54,16 +56,21 @@ router.post("/register", registerUser);
  *             properties:
  *               email:
  *                 type: string
+ *                 format: email
  *                 example: testuser@appro8.com
  *               password:
  *                 type: string
  *                 example: password123
  *     responses:
  *       200:
- *         description: Authentication successful, token released
+ *         description: Authentication successful; returns a JWT and user information
+ *       400:
+ *         description: Required credentials are missing, if handled as a bad request
  *       401:
- *         description: Invalid credentials or password mismatch
+ *         description: Email or password is incorrect
  */
+
+router.post("/register", registerUser);
 router.post("/login", loginUser);
 
 module.exports = router;
