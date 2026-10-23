@@ -615,10 +615,5 @@ Potential improvements include:
 
 [AppRo8 Task Management API](https://github.com/FatimaGhafoor/task-api)
 
-## Developer
-
-**Fatima Ghafoor**
-
-- GitHub: [FatimaGhafoor](https://github.com/FatimaGhafoor)
 
 Developed as part of the AppRo8 Full Stack Developer Internship.
