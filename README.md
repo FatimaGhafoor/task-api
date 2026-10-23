@@ -1,72 +1,152 @@
 # AppRo8 Task Management API
 
-Node.js/Express REST service for authenticated personal task records backed by MongoDB. The process boots from `src/server.js`, parses JSON bodies, mounts OpenAPI UI at `/api-docs`, and splits public credential issuance (`/api/auth`) from JWT-gated task CRUD (`/api/tasks`). Task creation is schema-checked with Zod before persistence. Access tokens are issued in JSON responses and consumed from the `Authorization: Bearer` header; this codebase does not set or read HTTP cookies.
+A RESTful Task Management API built with **Node.js, Express.js, MongoDB, and Mongoose**. The API supports user registration, login, JWT-based authentication, and personal task management through CRUD operations.
 
-## Request pipeline
+The project was developed as part of the **AppRo8 Full Stack Developer Internship** and demonstrates REST API design, password hashing, request validation, database integration, authorization, and interactive API documentation.
 
-The stack below is the live Express order in `src/server.js`, with the task-route middleware chain from `src/routes/taskRoutes.js`.
+## Table of Contents
 
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Architecture and Request Flow](#architecture-and-request-flow)
+- [Prerequisites](#prerequisites)
+- [Installation and Setup](#installation-and-setup)
+- [Environment Variables](#environment-variables)
+- [Running the Application](#running-the-application)
+- [API Documentation](#api-documentation)
+- [API Endpoints](#api-endpoints)
+- [Authentication](#authentication)
+- [Request and Response Examples](#request-and-response-examples)
+- [Validation and Error Handling](#validation-and-error-handling)
+- [Task Data Model](#task-data-model)
+- [Security Considerations](#security-considerations)
+- [Testing](#testing)
+- [Project Structure](#project-structure)
+- [Future Improvements](#future-improvements)
+- [Author](#author)
+
+## Features
+
+- **User registration and login** with email and password.
+- **Password hashing** using `bcryptjs` before storing passwords.
+- **JWT authentication** with token expiration.
+- **Task CRUD operations** — create, read, update, and delete tasks.
+- **User-specific task access** — users can manage only their own tasks.
+- **Request validation** using Zod when creating tasks.
+- **MongoDB persistence** through Mongoose models.
+- **Centralized error handling** for common API and database errors.
+- **Interactive API documentation** using Swagger UI and OpenAPI.
+- **Environment-based configuration** for secrets, database connections, and application settings.
+
+## Tech Stack
+
+| Technology                      | Purpose                                     |
+| ------------------------------- | ------------------------------------------- |
+| Node.js                         | JavaScript runtime                          |
+| Express.js                      | HTTP server and REST API routing            |
+| MongoDB                         | NoSQL database                              |
+| Mongoose                        | Database schemas, models, and queries       |
+| JSON Web Token (`jsonwebtoken`) | Authentication and token verification       |
+| `bcryptjs`                      | Password hashing and comparison             |
+| Zod                             | Request body validation for task creation   |
+| Swagger UI Express              | Interactive API documentation               |
+| Swagger JSDoc                   | OpenAPI specification generation            |
+| dotenv                          | Environment variable configuration          |
+| Nodemon                         | Automatic server restart during development |
+
+## Architecture and Request Flow
+
+The application separates authentication, routing, middleware, controllers, and database models to improve maintainability and keep responsibilities organized.
+
+```text
+Client (Postman / Frontend)
+          |
+          v
+   Express Application
+          |
+          v
+    JSON Body Parser
+          |
+          +-----------------------+
+          |                       |
+          v                       v
+    /api/auth                  /api/tasks
+          |                       |
+          v                       v
+  Authentication Logic      JWT Protection
+          |                       |
+          v                       v
+     User Model            Route-specific Middleware
+                                  |
+                                  v
+                              Controllers
+                                  |
+                                  v
+                            Mongoose Models
+                                  |
+                                  v
+                               MongoDB
+
+       Centralized Error Handler
+                  |
+                  v
+          HTTP Error Response
 ```
-Client
-  |
-  v
-dotenv.config()                    # process.env from .env
-  |
-  v
-connectDB()                        # mongoose.connect(process.env.MONGO_URI)
-  |
-  v
-express.json()                     # app.use(express.json())
-  |
-  +-- GET  /                       -> welcome JSON
-  +-- GET  /api-docs               -> swagger-ui-express + swagger-jsdoc
-  +-- POST /api/auth/register      -> registerUser (no protect)
-  +-- POST /api/auth/login         -> loginUser (no protect)
-  |
-  +-- /api/tasks  (router)
-  |      |
-  |      +-- POST /                -> protect -> validateTask (Zod) -> createTask
-  |      +-- GET  /                -> protect -> getAllTasks
-  |      +-- PUT  /:id             -> protect -> updateTask
-  |      +-- DELETE /:id           -> protect -> deleteTask
-  |
-  v
-errorHandler                       # 4-arg Express handler (CastError, 11000, ValidationError)
-  |
-  v
-process listeners                  # unhandledRejection / uncaughtException -> server.close()
+
+### Authentication flow
+
+1. A user registers or logs in using their credentials.
+2. The API verifies the credentials and generates a signed JWT.
+3. The client receives the token in the JSON response.
+4. The client sends the token in the `Authorization` header when accessing protected endpoints.
+5. Authentication middleware verifies the token and loads the associated user.
+6. Task controllers use the authenticated user's ID to restrict access to that user's tasks.
+
+## Prerequisites
+
+Make sure the following are installed:
+
+- [Node.js](https://nodejs.org/) — use a version compatible with the project's installed dependencies.
+- npm — included with Node.js.
+- [MongoDB](https://www.mongodb.com/) — a local instance or MongoDB Atlas account.
+- [Git](https://git-scm.com/) — for cloning the repository.
+- [Postman](https://www.postman.com/) or another HTTP client for testing.
+
+## Installation and Setup
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/FatimaGhafoor/task-api.git
 ```
 
-`protect` (`src/middlewares/authMiddleware.js`) extracts `jwt.verify` of `Authorization` Bearer tokens using `JWT_SECRET`, loads `User` by `decoded.id` with `.select("-password")`, and attaches `req.user`. Missing or invalid tokens yield HTTP 401 via `errorHandler`.
+### 2. Navigate to the project directory
 
-## Technical features
+```bash
+cd task-api
+```
 
-- **Zod request gate on create:** `validateTask` in `src/middlewares/validateMiddleware.js` runs `taskValidationSchema.safeParse(req.body)` only on `POST /api/tasks`. `title` and `description` are required non-empty trimmed strings. `status` is optional and constrained to `pending | in-progress | completed`. Failures return `400` with `{ success: false, errors: string[] }`.
-- **JWT issuance:** `generateToken` in `src/controllers/authController.js` signs `{ id }` with `jsonwebtoken` and `process.env.JWT_SECRET`, `expiresIn: "30d"`. `POST /api/auth/register` (201) and `POST /api/auth/login` (200) return `token` in the JSON body alongside `{ id, name, email }`.
-- **JWT enforcement:** All `/api/tasks` handlers are preceded by `protect`. Tokens are not stored in cookies; clients must send `Authorization: Bearer <token>`.
-- **Password hashing:** `User` pre-save hook in `src/models/User.js` salts with `bcryptjs` (`genSalt(10)`) when `password` is modified. Minimum length is 6. Login uses `user.matchPassword()`.
-- **Per-user task scoping on read/create:** `createTask` sets `user: req.user._id`. `getAllTasks` queries `Task.find({ user: req.user._id })`.
-- **Mongoose persistence:** `Task` documents include `user` ObjectId ref, `title`, optional `description`, `status` enum defaulting to `pending`, and `timestamps`. Duplicate emails surface as Mongo `11000` mapped to 400 by `errorHandler`.
-- **OpenAPI:** `swagger-jsdoc` scans `./src/routes/*.js`; UI is served at `/api-docs` with BearerAuth defined as HTTP bearer JWT.
-- **Operational shutdown:** `unhandledRejection` and `uncaughtException` log the error, close the HTTP server, and `process.exit(1)`.
-
-## Local installation and setup
-
-### Prerequisites
-
-- Node.js capable of running Express 5 and Mongoose 9
-- A MongoDB instance reachable by URI (local process or Atlas)
-
-### Steps
-
-1. Clone the repository and enter the project root.
-2. Install dependencies:
+### 3. Install dependencies
 
 ```bash
 npm install
 ```
 
-3. Create a `.env` file in the project root (the file is gitignored). Variable names match `src/config/db.js`, `src/controllers/authController.js`, `src/middlewares/authMiddleware.js`, `src/middlewares/errorHandler.js`, and `src/server.js`:
+### 4. Configure environment variables
+
+Create a `.env` file in the project root and add the configuration described in the next section.
+
+### 5. Start the application
+
+```bash
+npm run dev
+```
+
+The development server should connect to MongoDB and start listening on the configured port.
+
+## Environment Variables
+
+Create a `.env` file in the root directory:
 
 ```env
 PORT=5000
@@ -75,59 +155,460 @@ JWT_SECRET=replace-with-a-long-random-secret
 NODE_ENV=development
 ```
 
-4. Start the HTTP listener:
+| Variable     | Description                                                            |
+| ------------ | ---------------------------------------------------------------------- |
+| `PORT`       | Port on which the Express server listens. Defaults to `5000` if unset. |
+| `MONGO_URI`  | MongoDB connection string for a local database or Atlas cluster.       |
+| `JWT_SECRET` | Secret used to sign and verify JWTs.                                   |
+| `NODE_ENV`   | Application environment, such as `development` or `production`.        |
+
+**Important:**
+
+- Replace the example `JWT_SECRET` with a strong, randomly generated secret.
+- Use your actual MongoDB connection string when using Atlas.
+- Never commit `.env` or expose database credentials and JWT secrets in public repositories.
+- Ensure `.env` is included in `.gitignore`.
+
+## Running the Application
+
+### Development mode
 
 ```bash
 npm run dev
 ```
 
-This runs `nodemon src/server.js`. For a single process without reload, use `npm start` (`node src/server.js`). On success the console prints `MongoDB Connected: <host>` and `Server running in development mode on port <PORT>`. Default bind port is `5000` when `PORT` is unset.
+This runs the application with Nodemon when configured in `package.json`.
 
-5. Confirm the process:
+### Production-style local start
 
 ```bash
-curl http://localhost:5000/
+npm start
 ```
 
-Expected body: `{ "success": true, "message": "Welcome to AppRo8 Task Management API - Server is Live!" }`. Interactive schema: `http://localhost:5000/api-docs`.
+This runs the application using Node.js without Nodemon, provided the `start` script is configured as `node src/server.js`.
 
-`vercel.json` routes all paths to `src/server.js` via `@vercel/node` if deployed on Vercel; local development does not require that file.
+### Verify the server
 
-## API endpoint map
+Open the following URL in your browser or HTTP client:
 
-Base URL (local): `http://localhost:5000`. Task routes require header `Authorization: Bearer <JWT>`. Zod validation applies only to `POST /api/tasks`. `PUT /api/tasks/:id` and `DELETE /api/tasks/:id` currently update/delete by Mongo `_id` without an additional `user` filter in the controller.
+`http://localhost:5000/`
 
-| Method | Path | Auth | Request JSON | Success response |
-| --- | --- | --- | --- | --- |
-| `GET` | `/` | None | None | `200` `{ "success": true, "message": "Welcome to AppRo8 Task Management API - Server is Live!" }` |
-| `GET` | `/api-docs` | None | None | Swagger UI HTML |
-| `POST` | `/api/auth/register` | None | `{ "name": "string", "email": "string", "password": "string" }` — all required; password min 6 via Mongoose | `201` `{ "success": true, "message": "User registered successfully", "token": "<jwt>", "user": { "id", "name", "email" } }` |
-| `POST` | `/api/auth/login` | None | `{ "email": "string", "password": "string" }` | `200` `{ "success": true, "token": "<jwt>", "user": { "id", "name", "email" } }` |
-| `POST` | `/api/tasks` | Bearer JWT | `{ "title": "string", "description": "string", "status": "pending" \| "in-progress" \| "completed" }` — `title` and `description` required by Zod; `status` optional (model default `pending`) | `201` `{ "success": true, "data": <Task> }` |
-| `GET` | `/api/tasks` | Bearer JWT | None | `200` `{ "success": true, "count": <n>, "data": [<Task>] }` |
-| `PUT` | `/api/tasks/:id` | Bearer JWT | Partial document fields passed through to `findByIdAndUpdate` (typically `title`, `description`, `status`). No Zod middleware on this route. | `200` `{ "success": true, "data": <Task> }` |
-| `DELETE` | `/api/tasks/:id` | Bearer JWT | None | `200` `{ "success": true, "message": "Task deleted successfully" }` |
+Expected response:
 
-`:id` is the MongoDB `_id` string.
+```json
+{
+  "success": true,
+  "message": "Welcome to AppRo8 Task Management API - Server is Live!"
+}
+```
 
-### Representative error bodies
+The exact response depends on the running version of the application.
 
-| Condition | Status | Body shape |
-| --- | --- | --- |
-| Zod failure on create | `400` | `{ "success": false, "errors": ["Title is required", ...] }` |
-| Missing register/login fields, duplicate email, Mongoose validation, CastError | `400` (via `errorHandler` or controller `next`) | `{ "success": false, "error": "<message>", "stack": <string\|null> }` |
-| Invalid login credentials | `401` | `{ "success": false, "error": "Invalid email or password", "stack": ... }` |
-| Missing or invalid JWT on `/api/tasks` | `401` | `{ "success": false, "error": "Not authorized, no token provided" \| "Not authorized, token failed or expired", "stack": ... }` |
-| Unknown task `_id` on update/delete | `404` | `{ "success": false, "message": "Task not found" }` |
+## API Documentation
 
-`stack` is omitted (`null`) when `NODE_ENV=production`.
+Interactive API documentation is available through Swagger UI:
 
-### Task document fields (Mongoose)
+**Local URL:** `http://localhost:5000/api-docs`
 
-| Field | Type | Notes |
-| --- | --- | --- |
-| `user` | ObjectId → `User` | Set from `req.user._id` on create |
-| `title` | String | Required, trimmed |
-| `description` | String | Trimmed; required by Zod on create, not required on the schema |
-| `status` | String | `pending` (default), `in-progress`, `completed` |
-| `createdAt` / `updatedAt` | Date | Schema `timestamps: true` |
+Swagger UI allows you to explore documented endpoints, review request and response schemas, and send API requests.
+
+For protected endpoints:
+
+1. Register a user or log in.
+2. Copy the returned JWT.
+3. Click **Authorize** in Swagger UI.
+4. Enter the token using the Bearer authentication scheme.
+5. Execute a protected request.
+
+The API uses an OpenAPI specification generated through `swagger-jsdoc`.
+
+## API Endpoints
+
+**Base URL:** `http://localhost:5000`
+
+All task endpoints require a valid JWT. Registration and login are public.
+
+### General
+
+| Method | Endpoint    | Authentication | Description         |
+| ------ | ----------- | -------------- | ------------------- |
+| GET    | `/`         | Not required   | Check server status |
+| GET    | `/api-docs` | Not required   | Open Swagger UI     |
+
+### Authentication
+
+| Method | Endpoint             | Authentication | Success status | Description                   |
+| ------ | -------------------- | -------------- | -------------- | ----------------------------- |
+| POST   | `/api/auth/register` | Not required   | `201 Created`  | Register a new user           |
+| POST   | `/api/auth/login`    | Not required   | `200 OK`       | Authenticate an existing user |
+
+### Tasks
+
+| Method | Endpoint         | Authentication | Success status | Description                             |
+| ------ | ---------------- | -------------- | -------------- | --------------------------------------- |
+| POST   | `/api/tasks`     | Bearer JWT     | `201 Created`  | Create a task                           |
+| GET    | `/api/tasks`     | Bearer JWT     | `200 OK`       | Retrieve the authenticated user's tasks |
+| PUT    | `/api/tasks/:id` | Bearer JWT     | `200 OK`       | Update an owned task                    |
+| DELETE | `/api/tasks/:id` | Bearer JWT     | `200 OK`       | Delete an owned task                    |
+
+`:id` is the MongoDB ObjectId of the task.
+
+## Authentication
+
+The API uses JSON Web Tokens for stateless authentication.
+
+### Register a user
+
+**POST** `/api/auth/register`
+
+Request body:
+
+```json
+{
+  "name": "Test User",
+  "email": "testuser@example.com",
+  "password": "Test123456"
+}
+```
+
+Successful response — `201 Created`:
+
+```json
+{
+  "success": true,
+  "message": "User registered successfully",
+  "token": "<jwt>",
+  "user": {
+    "id": "<user_id>",
+    "name": "Test User",
+    "email": "testuser@example.com"
+  }
+}
+```
+
+The token and IDs above are placeholders.
+
+### Log in
+
+**POST** `/api/auth/login`
+
+Request body:
+
+```json
+{
+  "email": "testuser@example.com",
+  "password": "Test123456"
+}
+```
+
+Successful response — `200 OK`:
+
+```json
+{
+  "success": true,
+  "token": "<jwt>",
+  "user": {
+    "id": "<user_id>",
+    "name": "Test User",
+    "email": "testuser@example.com"
+  }
+}
+```
+
+### Send the token
+
+For protected requests, include this header:
+
+```http
+Authorization: Bearer <jwt>
+```
+
+The token is signed using `JWT_SECRET` and configured to expire after 30 days. The client must send the token with each protected request. The API does not use HTTP cookies for authentication.
+
+## Request and Response Examples
+
+The following examples use the local base URL. Replace placeholder IDs and tokens with values returned by your API.
+
+### 1. Create a task
+
+**POST** `/api/tasks`
+
+Headers:
+
+```http
+Authorization: Bearer <jwt>
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "title": "Complete API Documentation",
+  "description": "Document and test the task management endpoints",
+  "status": "pending"
+}
+```
+
+Successful response — `201 Created`:
+
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "<task_id>",
+    "user": "<user_id>",
+    "title": "Complete API Documentation",
+    "description": "Document and test the task management endpoints",
+    "status": "pending",
+    "createdAt": "<timestamp>",
+    "updatedAt": "<timestamp>"
+  }
+}
+```
+
+The API assigns the task to the authenticated user. The example omits other possible Mongoose fields.
+
+### 2. Retrieve tasks
+
+**GET** `/api/tasks`
+
+Headers:
+
+```http
+Authorization: Bearer <jwt>
+```
+
+Successful response — `200 OK`:
+
+```json
+{
+  "success": true,
+  "count": 1,
+  "data": [
+    {
+      "_id": "<task_id>",
+      "user": "<user_id>",
+      "title": "Complete API Documentation",
+      "description": "Document and test the task management endpoints",
+      "status": "pending",
+      "createdAt": "<timestamp>",
+      "updatedAt": "<timestamp>"
+    }
+  ]
+}
+```
+
+The `count` represents the number of tasks belonging to the authenticated user.
+
+### 3. Update a task
+
+**PUT** `/api/tasks/:id`
+
+Example endpoint:
+
+`PUT /api/tasks/<task_id>`
+
+Request body:
+
+```json
+{
+  "title": "Updated API Documentation",
+  "status": "completed"
+}
+```
+
+Successful response — `200 OK`:
+
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "<task_id>",
+    "user": "<user_id>",
+    "title": "Updated API Documentation",
+    "description": "Document and test the task management endpoints",
+    "status": "completed",
+    "createdAt": "<timestamp>",
+    "updatedAt": "<timestamp>"
+  }
+}
+```
+
+The update controller accepts partial task fields. It applies Mongoose update validators, but this route does not currently use the Zod validation middleware.
+
+### 4. Delete a task
+
+**DELETE** `/api/tasks/:id`
+
+Headers:
+
+```http
+Authorization: Bearer <jwt>
+```
+
+Successful response — `200 OK`:
+
+```json
+{
+  "success": true,
+  "message": "Task deleted successfully"
+}
+```
+
+### 5. Test an empty task list
+
+**GET** `/api/tasks`
+
+If the authenticated user has no tasks, the response is:
+
+```json
+{
+  "success": true,
+  "count": 0,
+  "data": []
+}
+```
+
+## Validation and Error Handling
+
+The application uses Zod for task creation validation and centralized error handling for application and database errors.
+
+### Task creation validation
+
+The Zod middleware runs on `POST /api/tasks`.
+
+| Field         | Requirement                                                            |
+| ------------- | ---------------------------------------------------------------------- |
+| `title`       | Required, non-empty trimmed string                                     |
+| `description` | Required, non-empty trimmed string                                     |
+| `status`      | Optional; allowed values are `pending`, `in-progress`, and `completed` |
+
+If validation fails, the API returns `400 Bad Request` with a response shaped like:
+
+```json
+{
+  "success": false,
+  "errors": ["Title is required"]
+}
+```
+
+The exact validation messages depend on the submitted data and schema.
+
+### Common error responses
+
+| Scenario                                     | Expected status    | Description                                                                      |
+| -------------------------------------------- | ------------------ | -------------------------------------------------------------------------------- |
+| Missing required registration fields         | `400 Bad Request`  | Required user details were not supplied                                          |
+| Duplicate email                              | `400 Bad Request`  | An account already exists with that email                                        |
+| Invalid login credentials                    | `401 Unauthorized` | Email or password is incorrect                                                   |
+| Missing or invalid JWT                       | `401 Unauthorized` | Authentication is required or the token is invalid/expired                       |
+| Invalid task creation body                   | `400 Bad Request`  | Zod validation failed                                                            |
+| Task not found or not owned by the requester | `404 Not Found`    | The task is unavailable to that user                                             |
+| Mongoose validation or malformed ObjectId    | `400 Bad Request`  | Database validation or casting failed, according to the configured error handler |
+
+Error response bodies depend on the relevant controller, middleware, and environment configuration. In production, internal stack traces should not be exposed to clients.
+
+## Task Data Model
+
+Task documents are stored in MongoDB through the Mongoose `Task` model.
+
+| Field         | Type               | Description                                   |
+| ------------- | ------------------ | --------------------------------------------- |
+| `_id`         | ObjectId           | Unique task identifier                        |
+| `user`        | ObjectId reference | ID of the user who owns the task              |
+| `title`       | String             | Required task title                           |
+| `description` | String             | Task description; required by Zod on creation |
+| `status`      | String             | `pending`, `in-progress`, or `completed`      |
+| `createdAt`   | Date               | Creation timestamp                            |
+| `updatedAt`   | Date               | Last update timestamp                         |
+
+Mongoose timestamps automatically maintain `createdAt` and `updatedAt`.
+
+The default task status is `pending`.
+
+## Security Considerations
+
+- Passwords are hashed using `bcryptjs`; plaintext passwords should never be stored.
+- JWTs are signed using a secret configured through environment variables.
+- Protected endpoints require a valid Bearer token.
+- Task creation assigns ownership using the authenticated user's ID.
+- Task retrieval filters records by the authenticated user's ID.
+- Task updates and deletions filter by both task ID and authenticated user ID, preventing users from modifying or deleting another user's tasks.
+- Secrets and credentials should not be committed to source control.
+- Production deployments should use HTTPS and avoid exposing internal error details.
+
+## Testing
+
+The endpoints can be tested with Postman, Swagger UI, or another HTTP client.
+
+Recommended test sequence:
+
+1. Register a new user.
+2. Confirm registration returns `201 Created`.
+3. Log in and obtain a JWT.
+4. Call `GET /api/tasks` with the token.
+5. Create a task with valid data.
+6. Retrieve the task and verify its fields.
+7. Update the task and verify the changes.
+8. Delete the task and confirm it no longer appears.
+9. Call a protected endpoint without a token and confirm it returns `401 Unauthorized`.
+10. Test invalid task input and confirm validation errors are returned.
+11. Attempt to update or delete another user's task and confirm access is denied.
+
+A successful CRUD test should confirm both the HTTP response and the resulting database state.
+
+## Project Structure
+
+The main source files are organized by responsibility:
+
+```text
+task-api/
+├── src/
+│   ├── config/
+│   │   └── db.js
+│   ├── controllers/
+│   │   ├── authController.js
+│   │   └── taskController.js
+│   ├── middlewares/
+│   │   ├── authMiddleware.js
+│   │   ├── errorHandler.js
+│   │   └── validateMiddleware.js
+│   ├── models/
+│   │   ├── User.js
+│   │   └── Task.js
+│   ├── routes/
+│   │   ├── authRoutes.js
+│   │   └── taskRoutes.js
+│   └── server.js
+├── .env                  # Local secrets; do not commit
+├── .gitignore
+├── package.json
+├── package-lock.json
+├── README.md
+└── vercel.json           # Deployment configuration, if used
+```
+
+This tree represents the primary application files; other configuration or project files may also exist in the repository.
+
+## Future Improvements
+
+Potential improvements include:
+
+- Add Zod validation to task update requests.
+- Add automated tests for authentication, validation, CRUD, and ownership checks.
+- Improve input normalization and email validation.
+- Add pagination and filtering for task lists.
+- Add rate limiting and stronger production security configuration.
+- Add a continuous integration workflow to run tests automatically.
+
+## Author
+
+**Fatima Ghafoor**
+
+- GitHub: [FatimaGhafoor](https://github.com/FatimaGhafoor)
+- Project Repository: [AppRo8 Task Management API](https://github.com/FatimaGhafoor/task-api)
+
+---
+
+Developed as part of the AppRo8 Full Stack Developer Internship.
