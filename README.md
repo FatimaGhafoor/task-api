@@ -606,9 +606,19 @@ Potential improvements include:
 
 **Fatima Ghafoor**
 
-- GitHub: [FatimaGhafoor](https://github.com/FatimaGhafoor)
-- Project Repository: [AppRo8 Task Management API](https://github.com/FatimaGhafoor/task-api)
+## Live Demo
 
----
+- **Live API:** https://task-api-ecru.vercel.app/
+- **Swagger API Documentation:** https://task-api-ecru.vercel.app/api-docs/
+
+## Project Repository
+
+[AppRo8 Task Management API](https://github.com/FatimaGhafoor/task-api)
+
+## Developer
+
+**Fatima Ghafoor**
+
+- GitHub: [FatimaGhafoor](https://github.com/FatimaGhafoor)
 
 Developed as part of the AppRo8 Full Stack Developer Internship.
