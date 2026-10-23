@@ -39,9 +39,6 @@ const getAllTasks = async (req, res, next) => {
 const updateTask = async (req, res, next) => {
   try {
     const { id } = req.params;
-    console.log("Authenticated user:", req.user?._id?.toString());
-    console.log("Requested task:", id);
-
     const { title, description, status } = req.body;
 
     const updates = {};
